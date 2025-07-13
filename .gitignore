@@ -1,3 +1,5 @@
+# Data folder (large dataset files)
+data/
 # Python cache files
 __pycache__/
 *.pyc
@@ -9,8 +11,6 @@ __pycache__/
 # Jupyter notebook checkpoints
 .ipynb_checkpoints/
 
-# Data folder (large dataset files)
-data/
 
 # Model files
 models/
