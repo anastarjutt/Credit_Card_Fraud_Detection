@@ -20,6 +20,7 @@ class config:
             'reports':os.path.join(self.base_dir,'reports'),
             'data':os.path.join(self.base_dir,'data'),
             'logs':os.path.join(self.base_dir,'logs'),
+            'test':os.path.join(self.base_dir,'test'),
             'src':os.path.join(self.base_dir,'src')
         }
         
@@ -29,14 +30,9 @@ class config:
         self.files_to_generate = {
             'base':['README.md','.gitignore','requirements.txt','main.py','logger.py'],
             'src':['__init__.py','config.py','data_preprocessing.py','model_training.py','logger.py'],
-            'voting':['__init__.py'],
             'models':['__init__.py'],
-            'optuna':['__init__.py'],
-            'xgb':['__init__.py'],
-            'cat':['__init__.py'],
-            'notebooks':['01_eda.ipynb','__init__.py'],
-            'reports':['__init__.py'],
-            'logs':['__init__.py']
+            'notebooks':['01_eda.ipynb'],
+            'test':['tests.py','__init__.py']
         }
         for f_name,files in self.files_to_generate.items():
             folder_path = self.base_dir if f_name == 'base' else self.folders[f_name]
