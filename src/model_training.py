@@ -6,7 +6,7 @@ from xgboost import XGBClassifier
 from sklearn.metrics import f1_score,confusion_matrix,roc_auc_score,classification_report
 from src.logger import logger
 from src.config import conf
-from src.data_preprocessing import load_csv,preprocess_kf
+from src.data_preprocessing import load_csv,preprocess_kf,download_data
 
 def train_XGB():
     all_xgb_f1,all_xgb_roc,all_xgb_cm = [],[],[]
@@ -14,7 +14,11 @@ def train_XGB():
 
     try:
         cols = ['Time','Amount','Class']
-        X,y = load_csv(conf.data_path,cols)
+        try:
+            X,y = load_csv(conf.data_path,cols)
+        except Exception as load_err:
+            logger.warning(f'CSV Local Loading Failed Trying to Download data from kaggle: {load_err}')
+            X,y = download_data(cols)
 
         X_tr,X_te,y_tr,y_te = preprocess_kf(X,y)
         

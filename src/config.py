@@ -12,7 +12,8 @@ class config:
             self.base_dir = os.path.abspath(os.path.join(os.getcwd(),'..'))
 
         
-        self.models_path = os.getenv('DATA_PATH','data/creditcard.csv')
+        self.data_csv_path:str = os.getenv('DATA_PATH','data/creditcard.csv')
+        self.data_path:str = os.getenv('DATA_PATH','data')
         self.mlflow_uri = os.getenv('MLFLOW_TRACKING_URI')
         self.logs_path = os.getenv('LOG_PATH')
         self.voting_path = os.path.join(self.base_dir,'models','voting')
@@ -22,7 +23,7 @@ class config:
         self.xgb_path = os.path.join(self.base_dir,'models','xgb')
         self.notebooks_path = os.path.join(self.base_dir,'notebooks')
         self.reports_path = os.path.join(self.base_dir,'reports')
-        self.data_path = os.path.join(self.base_dir,'data','creditcard.csv')
+        self.models_path = os.path.join(self.base_dir,'models')
         self.src_path = os.path.join(self.base_dir,'src')
     
         self.params = {
