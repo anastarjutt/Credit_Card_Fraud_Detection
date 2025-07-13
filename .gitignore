@@ -1,6 +1,7 @@
-# Data folder (large dataset files)
+# Data
 data/
-# Python cache files
+
+# Python cache
 __pycache__/
 *.pyc
 *.pyo
@@ -8,11 +9,10 @@ __pycache__/
 *.pdb
 *.log
 
-# Jupyter notebook checkpoints
+# Jupyter notebooks
 .ipynb_checkpoints/
 
-
-# Model files
+# Model files (external saving recommended)
 models/
 *.joblib
 *.pkl
@@ -20,11 +20,7 @@ models/
 # Logs
 logs/
 
-# Docker files
-Dockerfile
-.dockerignore
-
-# Temporary files
+# Temp/backup files
 *.tmp
 *.swp
 *.bak

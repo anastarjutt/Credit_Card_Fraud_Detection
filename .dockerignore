@@ -1,0 +1,11 @@
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+env/
+.venv/
+data/
+notebooks/
+reports/
+models/
+logs/
