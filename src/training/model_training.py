@@ -186,7 +186,9 @@ class train:
             except Exception as e:
                 logger.error(f'Unexpected error Occured During Preprocessing of Data: {e}')
             
-            for fold,(X_train,y_train,X_test,y_test) in enumerate(zip(X_tr,y_tr,X_te,y_te),start=1)
+            for fold,(X_train,y_train,X_test,y_test) in enumerate(zip(X_tr,y_tr,X_te,y_te),start=1):
+                try:
+                    with mlflow.start_run(run_)
 
 def get_model_training():
     return train()
