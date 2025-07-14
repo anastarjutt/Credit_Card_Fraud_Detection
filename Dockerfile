@@ -1,12 +1,21 @@
 FROM python:3.11-slim
 
-# Set the working directory inside the container
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+
 WORKDIR /project
 
-# Copy all project files into the container
-COPY . .
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    unzip \
+    && rm -rf /var/lib/apt/lists/*
 
-# Install dependencies
+COPY requirements.txt .
+
 RUN pip install --no-cache-dir -r requirements.txt
 
-CMD [ "python","main.py","Train","--model","xgb" ]
+COPY . .
+
+# Default command (can be overridden at runtime)
+ENTRYPOINT ["python", "main.py"]
+CMD ["Train", "--model", "xgb"]

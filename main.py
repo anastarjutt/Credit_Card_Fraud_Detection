@@ -1,22 +1,46 @@
 import typer
-from src.model_training import train_XGB
-from src.config import conf
+import numpy as np
+
+from src.training.model_training import get_model_training
+from src.config.paths import get_path
+from src.config.settings import get_settings
+
+train = get_model_training()
+settings = get_settings()
+paths = get_path()
+
 app = typer.Typer()
-@app.command(name='Train',help='Model Types: XGB',rich_help_panel='Main Command')
+app.command(name='Train',help='Train a Model: [XGB, LGB]',rich_help_panel='Main Command')
 
-def run(model:str = typer.Option(...,help='Train Model XGB'),
-        fold:int = typer.Option(5,help='Number of folds per cross validation')
-        ):
+def run(
+        model:str = typer.Option(...,help='Specify A Model: [XGB, LGB]'),
+        fold:int = typer.Option(5,help='Number of Folds For Cross-Validation')
+):
     """
-    Train models: XGB   using StratifiedKFold
+    Train A Model Using Cross-Validation (StratifiedKFold) for Fraud Detection.
     """
-    typer.echo(f'Starting Training {model} With Folds_{fold}')
-    conf.n_split = fold
-    if model not in ['xgb']:
-        typer.echo('Choose the model from xgb')
+
+    model = model.upper()
+
+    if model not in ['XGB','LGB']:
+        typer.secho('Invalid Model Name Choose One: XGB or LGB',fg=typer.colors.RED)
+        typer.Exit(1)
+    
+    typer.echo(f'Trainin {model} with {fold} Folds')
+    settings.n_split = fold
+
+    try:
+        if model == 'XGB':
+            all_f1,all_roc,all_cm,all_clf,all_results = train.train_xgb()
+        elif model == 'LGB':
+            all_f1,all_roc,all_cm,all_clf,all_results = train.train_lgb()
+        
+        typer.secho(f'Training Compeleted Successfully for {model} Model.',fg=typer.colors.GREEN)
+        typer.echo(f'Avg F1_Score: {np.mean(all_f1):.2f}')
+        typer.echo(f'Avg Roc_Auc Score: {np.mean(all_roc):.2f}')
+
+    except Exception as e:
+        typer.secho(f'Training Failed for {model} Model Due to error: {e}',fg=typer.colors.RED)
         raise typer.Exit(1)
-    train_XGB()
-    typer.echo(f'Training Completed For {model}')
-
 if __name__ == '__main__':
     app()
