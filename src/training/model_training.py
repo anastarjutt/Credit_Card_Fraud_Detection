@@ -167,28 +167,30 @@ class train:
             logger.error(f'Can not Conentect to MLFlow Server: {conn_err}')
         return all_f1,all_roc,all_cm,all_clf,all_results
     
-    def train_cat(self):
-        try:
-            mlflow.set_experiment(settings.mlflow_experiment)
-            mlflow.set_tracking_uri(settings.mlflow_uri)
-            try:
+    # def train_cat(self):
+    #     try:
+    #         mlflow.set_experiment(settings.mlflow_experiment)
+    #         mlflow.set_tracking_uri(settings.mlflow_uri)
+    #         try:
                 
-                cols = ['Class','Amount','Time']
-                X,y = preprocess.load_csv(paths.DATA_CSV_PATH,cols=cols)
+    #             cols = ['Class','Amount','Time']
+    #             X,y = preprocess.load_csv(paths.DATA_CSV_PATH,cols=cols)
 
-            except:
+    #         except:
                 
-                cols = ['Class','Amount','Time']
-                X,y = preprocess.download_data(drop_cols=cols)
-            try:
-                X_tr,y_tr,X_te,y_te = preprocess.preprocess_kf(X,y)
+    #             cols = ['Class','Amount','Time']
+    #             X,y = preprocess.download_data(drop_cols=cols)
+    #         try:
+    #             X_tr,y_tr,X_te,y_te = preprocess.preprocess_kf(X,y)
 
-            except Exception as e:
-                logger.error(f'Unexpected error Occured During Preprocessing of Data: {e}')
+    #         except Exception as e:
+    #             logger.error(f'Unexpected error Occured During Preprocessing of Data: {e}')
             
-            for fold,(X_train,y_train,X_test,y_test) in enumerate(zip(X_tr,y_tr,X_te,y_te),start=1):
-                try:
-                    with mlflow.start_run(run_)
+    #         for fold,(X_train,y_train,X_test,y_test) in enumerate(zip(X_tr,y_tr,X_te,y_te),start=1):
+    #             try:
+    #                 with mlflow.start_run(run_name=f'Training CatBooster Fold_{fold}')
+
+    #                 params = 
 
 def get_model_training():
     return train()
