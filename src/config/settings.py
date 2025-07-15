@@ -11,7 +11,6 @@ from lightgbm import LGBMClassifier
 from catboost import CatBoostClassifier
 from dotenv import load_dotenv
 
-from .settings import get_settings
 from .paths import get_path
 from logger import logger
 
