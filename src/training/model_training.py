@@ -6,6 +6,7 @@ import joblib
 import mlflow
 from xgboost import XGBClassifier
 from lightgbm import LGBMClassifier
+from catboost import CatBoostClassifier
 from sklearn.metrics import f1_score, roc_auc_score, confusion_matrix, classification_report
 
 # Internal modules
@@ -30,11 +31,15 @@ class train:
         try:
             cols = ['Time','Amount','Class']
             X,y = preprocess.load_csv(paths.DATA_CSV_PATH,cols)
-        except FileNotFoundError as file_err:
-            logger.error(f'File Not found during loading of data: {file_err}')
+        except:
+            cols = ['Time','Amount','Class']
+            X,y = preprocess.download_data(cols)
+
         try:
             X_tr,y_tr,X_te,y_te = preprocess.preprocess_kf(X,y)
+
         except ValueError as val_err:
+
             logger.error(f'Value error accured during preprocessing of data: {val_err}')
 
         mlflow.set_experiment(settings.mlflow_experiment)
@@ -167,30 +172,75 @@ class train:
             logger.error(f'Can not Conentect to MLFlow Server: {conn_err}')
         return all_f1,all_roc,all_cm,all_clf,all_results
     
-    # def train_cat(self):
-    #     try:
-    #         mlflow.set_experiment(settings.mlflow_experiment)
-    #         mlflow.set_tracking_uri(settings.mlflow_uri)
-    #         try:
+    def train_cat(self):
+        try:
+            mlflow.set_experiment(settings.mlflow_experiment)
+            mlflow.set_tracking_uri(settings.mlflow_uri)
+            try:
                 
-    #             cols = ['Class','Amount','Time']
-    #             X,y = preprocess.load_csv(paths.DATA_CSV_PATH,cols=cols)
+                cols = ['Class','Amount','Time']
+                X,y = preprocess.load_csv(paths.DATA_CSV_PATH,cols=cols)
 
-    #         except:
+            except:
                 
-    #             cols = ['Class','Amount','Time']
-    #             X,y = preprocess.download_data(drop_cols=cols)
-    #         try:
-    #             X_tr,y_tr,X_te,y_te = preprocess.preprocess_kf(X,y)
+                cols = ['Class','Amount','Time']
+                X,y = preprocess.download_data(drop_cols=cols)
+            try:
+                X_tr,y_tr,X_te,y_te = preprocess.preprocess_kf(X,y)
 
-    #         except Exception as e:
-    #             logger.error(f'Unexpected error Occured During Preprocessing of Data: {e}')
+            except Exception as e:
+                logger.error(f'Unexpected error Occured During Preprocessing of Data: {e}')
             
-    #         for fold,(X_train,y_train,X_test,y_test) in enumerate(zip(X_tr,y_tr,X_te,y_te),start=1):
-    #             try:
-    #                 with mlflow.start_run(run_name=f'Training CatBooster Fold_{fold}')
+            for fold,(X_train,y_train,X_test,y_test) in enumerate(zip(X_tr,y_tr,X_te,y_te),start=1):
+                try:
+                    with mlflow.start_run(run_name=f'Training CatBooster Fold_{fold}'):
 
-    #                 params = 
+                        params = settings.cat_randomized_tune(X_train,y_train)
+
+                        model = CatBoostClassifier(**params)
+
+                        preds = model.predict(X_test)
+                        proba = model.predict_proba(X_test)[:,1]
+
+                        f1 = f1_score(y_test,preds)
+                        roc = roc_auc_score(y_test,preds)
+                        cm = confusion_matrix(y_test,preds)
+                        clf = classification_report(y_test,preds)
+
+                        all_f1.append(f1)
+                        all_roc.append(roc)
+                        all_cm.append(cm)
+                        all_clf.append(clf)
+                        all_results.append({'Fold':fold,'y_test':y_test,'proba':proba})
+
+
+                        mlflow.log_metric('F1_Score',float(f1))
+                        mlflow.log_metric('Roc_Auc_Score',float(roc))
+
+                        mlflow.log_dict({'ConFusion_Matrix':cm},'cm.json')
+
+                        fold_report_path = os.path.join(paths.REPORT_PATH,f'Cat_Report_Fold_{fold}.txt')
+                        with open(fold_report_path,'w') as f:
+                            f.write(str(clf))
+                        
+                        fold_model_path = os.path.join(paths.CAT_PATH,f'Cat_Model_Fold_{fold}.joblib')
+
+                        
+
+                        joblib.dump(model,fold_model_path)
+                        mlflow.log_artifact(fold_report_path)
+                        mlflow.log_artifact(fold_model_path)
+                except Exception as e:
+                    logger.error(f'UnExpected error on Training Cat_Model Fold_{fold}')
+        except FileNotFoundError as file_err:
+            logger.error(f'File Not Found For Training: {file_err}')
+        except ValueError as val_err:
+            logger.error(f'Model Training/Preprocessing Error: {val_err}')
+        except ConnectionError as conn_err:
+            logger.error(f'Connection Timeout While Connecting to mlflow Server: {conn_err}')
+
+        return all_f1,all_roc,all_cm,all_clf,all_results
+
 
 def get_model_training():
     return train()

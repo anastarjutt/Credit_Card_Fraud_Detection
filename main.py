@@ -10,10 +10,10 @@ settings = get_settings()
 paths = get_path()
 
 app = typer.Typer()
-app.command(name='Train',help='Train a Model: [XGB, LGB]',rich_help_panel='Main Command')
+app.command(name='Train',help='Train a Model: [XGB, LGB, CAT]',rich_help_panel='Main Command')
 
 def run(
-        model:str = typer.Option(...,help='Specify A Model: [XGB, LGB]'),
+        model:str = typer.Option(...,help='Specify A Model: [XGB, LGB, CAT]'),
         fold:int = typer.Option(5,help='Number of Folds For Cross-Validation')
 ):
     """
@@ -22,8 +22,8 @@ def run(
 
     model = model.upper()
 
-    if model not in ['XGB','LGB']:
-        typer.secho('Invalid Model Name Choose One: XGB or LGB',fg=typer.colors.RED)
+    if model not in ['XGB','LGB','CAT']:
+        typer.secho('Invalid Model Name Choose One: XGB LGB or CAT',fg=typer.colors.RED)
         typer.Exit(1)
     
     typer.echo(f'Trainin {model} with {fold} Folds')
@@ -34,6 +34,8 @@ def run(
             all_f1,all_roc,all_cm,all_clf,all_results = train.train_xgb()
         elif model == 'LGB':
             all_f1,all_roc,all_cm,all_clf,all_results = train.train_lgb()
+        elif model == 'CAT':
+            all_f1,all_roc,all_cm,all_clf,all_results = train.train_cat()
         
         typer.secho(f'Training Compeleted Successfully for {model} Model.',fg=typer.colors.GREEN)
         typer.echo(f'Avg F1_Score: {np.mean(all_f1):.2f}')

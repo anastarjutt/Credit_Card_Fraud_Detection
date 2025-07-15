@@ -19,6 +19,7 @@ class paths:
         self.XGB_PATH = os.path.join(self.MODELS_PATH,'xgb')
         self.LGB_PATH = os.path.join(self.MODELS_PATH,'lgb')
         self.FOLD_PATH = os.path.join(self.MODELS_PATH,'fold')
+        self.CAT_PATH = os.path.join(self.MODELS_PATH,'cat')
 
         self.REPORT_PATH = os.getenv('REPORT_PATH','reports')
         self.LOG_PATH = os.getenv('LOG_PATH','logs')
