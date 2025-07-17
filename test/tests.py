@@ -42,7 +42,7 @@ def test_preprocess_kf(dataset):
 
 def test_xgb_training(dataset,tmp_path):
     X,y = dataset
-    xg = XGBClassifier(eval_metric='logloss',use_label_encoder=False,random_state=setting.random_seed)
+    xg = XGBClassifier(eval_metric='logloss',use_label_encoder=False,random_state=setting.random_seed_value)
     xg.fit(X.head(100),y.head(100))
 
     preds = xg.predict(X.head(10))
@@ -66,7 +66,7 @@ def test_xgb_training(dataset,tmp_path):
 def test_cat_training(dataset,tmp_path):
     X,y = dataset
 
-    model = CatBoostClassifier(random_state=setting.random_seed)
+    model = CatBoostClassifier(random_state=setting.random_seed_value)
     model.fit(X.head(100),y.head(100))
 
     preds = model.predict(X.head(10))

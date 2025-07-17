@@ -2,20 +2,26 @@
 import os
 from time import time
 # Third-party
+
 import joblib
 import mlflow
-from typing import Any
+import optuna
+import traceback
+import numpy as np
+import pandas as pd
+from typing import Any,Optional,Literal,cast,Tuple
 from xgboost import XGBClassifier
 from lightgbm import LGBMClassifier
 from catboost import CatBoostClassifier
 from sklearn.ensemble import VotingClassifier
+from sklearn.base import BaseEstimator
 from sklearn.metrics import f1_score, roc_auc_score, confusion_matrix, classification_report
 
 # Internal modules
-from logger import logger
+from src.logger import logger
 from src.config.paths import get_path
 from src.config.settings import get_settings
-from data_preprocessing import get_preprocess
+from src.data_preprocessing import get_preprocess
 
 
 preprocess = get_preprocess()
@@ -25,11 +31,12 @@ settings = get_settings()
 all_f1,all_roc,all_results = [],[],[]
 all_clf,all_cm = [],[]
 
+tuner_typer = Optional[Literal['optuna','randomized']]
 class train:
     def __init__(self) -> None:
         pass
 
-    def train_xgb(self):
+    def train_xgb(self,tunner:tuner_typer = 'randomized'):
         try:
             cols = ['Time','Amount','Class']
             X,y = preprocess.load_csv(paths.DATA_CSV_PATH,cols)
@@ -44,26 +51,35 @@ class train:
 
             logger.error(f'Value error accured during preprocessing of data: {val_err}')
 
-        mlflow.set_experiment(settings.mlflow_experiment)
-        mlflow.set_tracking_uri(settings.mlflow_uri)
+        mlflow.set_experiment(settings.mlflow_experiment_name)
+        mlflow.set_tracking_uri(settings.mlflow_tracking_uri)
         logger.info(f'Starting The Training Of XGB model ...')
         try:
 
             for fold,(X_train,y_train,X_test,y_test) in enumerate(zip(X_tr,y_tr,X_te,y_te),start=1):
                 
                 try:
-                    mlflow.start_run(run_name=f'Train XGB model with Fold_{fold}')
+                    mlflow.start_run(run_name=f'Train XGB model with Fold_{fold}',nested=True)
 
                     logger.info(f'Training model / Fold: {fold} using Randomizedcv for tuning')
 
-                    params = settings.xgb_randomized_tunned(X_train,y_train)
+                    if tunner == 'randomized':
+                        params = settings.xgb_randomized_search(X_train,y_train)
+                    
+                    elif tunner == 'optuna':
+                        def wraped(trial):
+                            return settings.xgb_optuna_tune(trial,X_train,y_train)
+                        study = optuna.create_study(direction='maximize')
+                        study.optimize(wraped,n_jobs=-1,n_trials=30)
+                        params = study.best_params
+                    
 
                     model = XGBClassifier(
                         **params,
                         eval_metric='logloss',
-                        use_label_encoder=False,
-                        random_state=settings.random_seed
+                        random_state=settings.random_seed_value
                         )
+                    model.fit(X_train,y_train)
                     
                     preds = model.predict(X_test)
                     proba = model.predict_proba(X_test)[:,1]
@@ -105,7 +121,7 @@ class train:
             logger.error(f'An unexpected error accured during model Training: {e}')
         return all_f1,all_roc,all_cm,all_clf,all_results
     
-    def train_lgb(self):
+    def train_lgb(self,tunner:tuner_typer = 'randomized'):
         try:
             
             cols = ['Class','Amount','Time']
@@ -125,24 +141,36 @@ class train:
             logger.info(f'error accured during preprocessing of data: {snx_err}')
 
         try:
-            mlflow.set_experiment(settings.mlflow_experiment)
-            mlflow.set_tracking_uri(settings.mlflow_uri)
+            mlflow.set_experiment(settings.mlflow_experiment_name)
+            mlflow.set_tracking_uri(settings.mlflow_tracking_uri)
 
             for fold,(X_train,y_train,X_test,y_test) in enumerate(zip(X_tr,y_tr,X_te,y_te),start=1):
                 try:
-                    mlflow.start_run(run_name=f'Training LGB model with Fold_{fold}')
+                    mlflow.start_run(run_name=f'Training LGB model with Fold_{fold}',nested=True)
 
+                    if tunner == 'randomized':
 
-                    best_params = settings.lgb_randomized_tune(X_train,y_train,eval_metric='logloss')
-                    model = LGBMClassifier(**best_params)
+                        params = settings.lgb_randomized_search(X_train,y_train)
+                    
+                    elif tunner == 'optuna':
+                        def wraped(trial):
+                            return settings.lgb_optuna_tune(trial,X_train,y_train)
+                        study = optuna.create_study(direction='maximize')
+                        study.optimize(wraped,n_jobs=-1,n_trials=30)
+                        params = study.best_params
+                    
+
+                    model:Any = LGBMClassifier(**params)
+                    model.fit(X_train,y_train)
 
                     preds = model.predict(X_test)
-                    proba = model.predict_proba(X_test)[:,1] # type: ignore
+                    preds = cast(np.ndarray,preds)
+                    proba = model.predict_proba(X_test)[:,1] 
 
-                    f1 = f1_score(y_test,preds) # type: ignore
-                    roc = roc_auc_score(y_test,preds) # type: ignore
-                    cm = confusion_matrix(y_test,preds) # type: ignore
-                    clf = classification_report(y_test,preds) # type: ignore
+                    f1 = f1_score(y_test,preds) 
+                    roc = roc_auc_score(y_test,preds) 
+                    cm = confusion_matrix(y_test,preds) 
+                    clf = classification_report(y_test,preds) 
 
                     all_f1.append(f1)
                     all_roc.append(roc)
@@ -177,10 +205,10 @@ class train:
             logger.error(f'Can not Conentect to MLFlow Server: {conn_err}')
         return all_f1,all_roc,all_cm,all_clf,all_results
     
-    def train_cat(self):
+    def train_cat(self,tunner:tuner_typer = 'randomized'):
         try:
-            mlflow.set_experiment(settings.mlflow_experiment)
-            mlflow.set_tracking_uri(settings.mlflow_uri)
+            mlflow.set_experiment(settings.mlflow_experiment_name)
+            mlflow.set_tracking_uri(settings.mlflow_tracking_uri)
             try:
                 
                 cols = ['Class','Amount','Time']
@@ -198,11 +226,23 @@ class train:
             
             for fold,(X_train,y_train,X_test,y_test) in enumerate(zip(X_tr,y_tr,X_te,y_te),start=1):
                 try:
-                    with mlflow.start_run(run_name=f'Training CatBooster Fold_{fold}'):
+                    with mlflow.start_run(run_name=f'Training CatBooster Fold_{fold}',nested=True):
+
+                        if tunner == 'randomized':
+                            params = settings.catboost_randomized_search(X_train,y_train)
 
 
-                        params = settings.cat_randomized_tune(X_train,y_train)
+                        elif tunner == 'optuna':
+                            def wraped(trial):
+                                return settings.cat_optuna_tune(trial,X_train,y_train)
+                            
+                            study = optuna.create_study(direction='maximize')
+                            study.optimize(wraped,n_jobs=-1,n_trials=30)
+                            params = study.best_params
+                    
+
                         model = CatBoostClassifier(**params)
+                        model.fit(X_train,y_train)
 
                         preds = model.predict(X_test)
                         proba = model.predict_proba(X_test)[:,1]
@@ -238,6 +278,7 @@ class train:
 
                 except Exception as e:
                     logger.error(f'UnExpected error on Training Cat_Model Fold_{fold}')
+                    traceback.print_exc()
         except FileNotFoundError as file_err:
             logger.error(f'File Not Found For Training: {file_err}')
         except ValueError as val_err:
@@ -247,7 +288,7 @@ class train:
 
         return all_f1,all_roc,all_cm,all_clf,all_results
     
-    def train_voting(self):
+    def train_voting(self,tunner:tuner_typer = 'randomized'):
         try:
             cols = ['Time','Class','Amount']
             X,y = preprocess.load_csv(paths.DATA_CSV_PATH,cols)
@@ -266,55 +307,21 @@ class train:
             logger.error(f'Unexpected Error occured durin Preprocesing Data: {e}')
         
         try:
-            mlflow.set_experiment(settings.mlflow_experiment)
-            mlflow.set_tracking_uri(settings.mlflow_uri)
+            mlflow.set_experiment(settings.mlflow_experiment_name)
+            mlflow.set_tracking_uri(settings.mlflow_tracking_uri)
 
             for fold,(X_train,y_train,X_test,y_test) in enumerate(zip(X_tr,y_tr,X_te,y_te)):
 
-                with mlflow.start_run(run_name=f'Starting Training by Fold_{fold} of Voting Classifier'):
+                with mlflow.start_run(run_name=f'Starting Training by Fold_{fold} of Voting Classifier',nested=True):
 
-                    xgb_start = time()
-                    xgb_params = settings.xgb_randomized_tunned(X_train,y_train)
-                    xg = XGBClassifier(
-                        **xgb_params,
-                        random_state=settings.random_seed
-                        )
-                    xgb_time = time() - xgb_start
+                    if tunner  == 'randomized':
+                        votting = settings.voting_ranomized_search(X_train,y_train)
                     
-                    logger.info(f'Voting (XGB) model Tuning Time: {xgb_time}')
-
-                    lgb_start = time()
-                    lgb_params = settings.lgb_randomized_tune(X_train,y_train)
-                    lg:Any = LGBMClassifier(
-                        **lgb_params,
-                        random_state=settings.random_seed
-                        )
-                    lgb_time = time() - lgb_start 
-
-                    logger.info(f'Voting (LGB) model Tuning Time: {lgb_time}')
-
-
-                    cat_start = time()
-                    cat_params = settings.cat_randomized_tune(X_train,y_train)
-                    cat:Any = CatBoostClassifier(
-                        **cat_params,
-                        random_state=settings.random_seed
-                    )
-                    cat_time = time() - cat_start
-
-                    logger.info(f'Voting (Cat) model Tuning Time: {cat_time}')
-
+                    elif tunner == 'optuna':
+                        votting = settings.votting_optuna_tune(X_train,y_train)
 
                     voting_start = time()
-                    votting = VotingClassifier(
-                        estimators=[
-                            ('XGB',xg),
-                            ('LGB',lg),
-                            ('CAT',cat)
-                        ],
-                        voting='soft',
-                        n_jobs=-1,
-                    )
+                    
 
                     votting.fit(X_train,y_train)
 
@@ -324,7 +331,7 @@ class train:
 
 
                     preds = votting.predict(X_test)
-                    proba = votting.predict_proba(X_test)[:,0]
+                    proba = votting.predict_proba(X_test)[:,1]
 
                     f1 = f1_score(y_test,preds)
                     roc = roc_auc_score(y_test,preds)
@@ -356,5 +363,6 @@ class train:
             logger.error(f'An unexpected error occured during train of voting model: {e}')
         return all_f1,all_roc,all_cm,all_clf,all_results
     
+
 def get_model_training():
     return train()
